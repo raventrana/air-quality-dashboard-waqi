@@ -4,6 +4,7 @@
  */
 
 let mapInstance = null;
+let tileLayerInstance = null; // Add this line
 let markerInstance = null;
 let circleInstance = null;
 
@@ -17,23 +18,38 @@ export const MapModule = {
    * @param {string} aqiColor - Hex color corresponding to AQI
    * @param {string} cityName - Name of location
    */
-  initMap(elementId, lat, lng, aqi, aqiColor, cityName) {
+ // 1. Pass 'theme' into your initMap function arguments
+initMap(elementId, lat, lng, aqi, aqiColor, cityName, theme = 'dark') {
     const coords = [lat, lng];
-    
-    // Check if map is already initialized
-    if (!mapInstance) {
-      // Create new Leaflet map
-      mapInstance = L.map(elementId, {
-        center: coords,
-        zoom: 11,
-        zoomControl: true,
-        attributionControl: false
-      });
 
-      // Use CartoDB Dark Matter tile layer for an elegant, premium dark theme
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 20
-      }).addTo(mapInstance);
+    if (!mapInstance) {
+        mapInstance = L.map(elementId, {
+            center: coords,
+            zoom: 11,
+            zoomControl: true,
+            attributionControl: false
+        });
+
+        setTimeout(() => {
+            mapInstance.invalidateSize();
+        }, 500);
+    } else {
+        mapInstance.setView(coords, 11);
+    }
+
+    // 2. Clear out the previous tile layer if it exists
+    if (tileLayerInstance) {
+        mapInstance.removeLayer(tileLayerInstance);
+    }
+
+    // 3. Dynamically choose the URL based on your theme choice
+    const tileUrl = theme === 'light' 
+        ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png' // Light mode URL
+        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';          // Dark mode URL
+
+    tileLayerInstance = L.tileLayer(tileUrl, { maxZoom: 20 }).addTo(mapInstance);
+
+    // ... rest of your code handling markers remains the same
       
       // Handle resizing issues (especially when loading in a hidden element or drawer)
       setTimeout(() => {
