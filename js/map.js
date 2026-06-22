@@ -49,11 +49,11 @@ export const MapModule = {
         // 4. Smoothly pan & zoom to the coordinates
         mapInstance.setView(coords, 11);
 
-        // Clear previous layers to avoid duplicates
+        // 5. Clear previous markers to avoid duplicates
         if (markerInstance) mapInstance.removeLayer(markerInstance);
         if (circleInstance) mapInstance.removeLayer(circleInstance);
 
-        // Create a pulsing glow circle marker for the station
+        // Create a beautiful pulsing glow circle marker for the station
         circleInstance = L.circleMarker(coords, {
             radius: 18,
             fillColor: aqiColor,
@@ -72,15 +72,16 @@ export const MapModule = {
             weight: 3
         }).addTo(mapInstance);
 
-        // Bind styled informative popup
+        // Bind styled informative popup dynamically adapting to light/dark text colors
+        const textColor = theme === 'light' ? '#111827' : '#ffffff';
         const popupContent = `
             <div style="font-family: 'Plus Jakarta Sans', sans-serif; min-width: 140px;">
-                <h4 style="font-weight:700; margin-bottom:4px; font-size:14px; color:#111827;">${cityName}</h4>
+                <h4 style="font-weight:700; margin-bottom:4px; font-size:14px; color:${textColor};">${cityName}</h4>
                 <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
                     <span style="background:${aqiColor}; color:#fff; font-size:12px; font-weight:800; padding:3px 8px; border-radius:10px;">
                         AQI ${aqi}
                     </span>
-                    <span style="font-size:11px; color:#6b7280; font-weight:500;">
+                    <span style="font-size:11px; color:#9ca3af; font-weight:500;">
                         Active Station
                     </span>
                 </div>
@@ -89,7 +90,7 @@ export const MapModule = {
         
         markerInstance.bindPopup(popupContent, { closeButton: false }).openPopup();
 
-        // Handle resizing issues (especially when loading in hidden drawers)
+        // Handle resizing issues (especially when loading in a hidden element or drawer)
         setTimeout(() => {
             mapInstance.invalidateSize();
         }, 500);
