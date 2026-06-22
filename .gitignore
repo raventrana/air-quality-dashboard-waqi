@@ -1,0 +1,14 @@
+# Security: Local API Keys
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vercel Cache & Configs
+.vercel
+node_modules/
+
+# System Files
+.DS_Store
+Thumbs.db

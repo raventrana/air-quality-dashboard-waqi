@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AirPulse — Live Global Air Quality Dashboard</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="AirPulse is a high-fidelity, real-time global Air Quality index dashboard featuring interactive global mapping, pollutant forecasting, and personalized health guidance.">
+  <meta name="keywords" content="air quality, AQI, air pollution, PM2.5, ozone, weather, global air quality, environment tracker">
+  <meta name="author" content="Antigravity Coding Assistant">
+  
+  <!-- External Libraries Stylesheets -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Favicon Mock -->
+  <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%2306b6d4%22/></svg>">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Top Nav / Action Bar -->
+    <header class="top-bar">
+      <div class="brand">
+        <div class="logo-pulse">
+          <i data-lucide="wind" style="color: #fff; width: 18px; height: 18px;"></i>
+        </div>
+        <h1>AirPulse</h1>
+      </div>
+      
+      <!-- Autocomplete City Search -->
+      <div class="search-controls">
+        <div class="search-wrapper">
+          <i data-lucide="search" class="search-icon"></i>
+          <input type="text" id="city-search" class="search-input" placeholder="Search for cities globally..." autocomplete="off">
+          <div id="autocomplete-dropdown" class="autocomplete-dropdown"></div>
+        </div>
+        <button id="btn-gps" class="btn-icon" title="Use current GPS location">
+          <i data-lucide="map-pin" style="width: 20px; height: 20px;"></i>
+        </button>
+      </div>
+
+      <div class="action-buttons">
+        <button id="btn-theme-toggle" class="btn-icon" title="Toggle theme">
+          <i data-lucide="sun" id="theme-icon" style="width: 20px; height: 20px;"></i>
+        </button>
+        <button id="btn-settings-drawer" class="btn-icon" title="API Settings & Config">
+          <i data-lucide="settings" style="width: 20px; height: 20px;"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Body -->
+    <main class="dashboard-grid">
+      
+      <!-- LEFT SIDEBAR: Real-time AQI Hero -->
+      <aside class="left-sidebar">
+        <div class="glass-panel hero-card" id="aqi-card">
+          <!-- Loader overlay -->
+          <div class="loader-overlay" id="hero-loader">
+            <div class="spinner"></div>
+            <div class="loader-text">Fetching latest readings...</div>
+          </div>
+          
+          <div class="location-meta">
+            <div class="location-name" id="display-city">Loading...</div>
+            <div class="location-sub">
+              <i data-lucide="globe" style="width: 14px; height: 14px;"></i>
+              <span id="display-coords">Coordinates: --, --</span>
+            </div>
+          </div>
+
+          <!-- Giant circular AQI presentation -->
+          <div class="aqi-hero-display">
+            <div class="aqi-circular-progress">
+              <!-- Inline custom SVG circular path -->
+              <svg width="160" height="160" viewBox="0 0 160 160">
+                <circle cx="80" cy="80" r="70" fill="transparent" stroke="rgba(255,255,255,0.03)" stroke-width="8"></circle>
+                <circle id="aqi-progress-ring" cx="80" cy="80" r="70" fill="transparent" stroke="var(--aqi-color, var(--accent-cyan))" stroke-width="8" stroke-dasharray="440" stroke-dashoffset="440" stroke-linecap="round" transform="rotate(-90 80 80)" style="transition: stroke-dashoffset 0.8s ease; filter: drop-shadow(0 0 4px var(--aqi-color-glow));"></circle>
+              </svg>
+              <div class="aqi-value-box" style="position: absolute;">
+                <span class="aqi-number" id="display-aqi">--</span>
+                <span class="aqi-label">US AQI</span>
+              </div>
+            </div>
+            <div class="aqi-status-badge" id="display-status">Offline</div>
+          </div>
+
+          <!-- Interactive summary desc -->
+          <div class="aqi-description" id="display-description">
+            Connect to an active network to sync real-time atmospheric measurements.
+          </div>
+
+          <!-- Dynamic Weather Widget -->
+          <div class="weather-widget-mini">
+            <div class="weather-info">
+              <span class="weather-temp" id="display-temp">--°C</span>
+              <span class="weather-desc" id="display-weather-desc">Cloudy</span>
+            </div>
+            <div id="weather-icon-placeholder" class="weather-icon-svg">
+              <i data-lucide="cloud" style="width: 32px; height: 32px; color: var(--accent-cyan);"></i>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT CONTENT: Map, Pollutants, Forecasting, Guidance -->
+      <section class="right-content">
+        
+        <!-- ROW 1: Map and Pollutant breakdown -->
+        <div class="glass-panel map-card">
+          <!-- Loader overlay -->
+          <div class="loader-overlay" id="map-loader">
+            <div class="spinner"></div>
+            <div class="loader-text">Loading map stations...</div>
+          </div>
+
+          <div class="map-card-header">
+            <div class="panel-header-row">
+              <h2 class="panel-title">
+                <i data-lucide="map"></i> Interactive Monitoring Stations
+              </h2>
+            </div>
+          </div>
+          
+          <div id="leaflet-map" class="map-container"></div>
+        </div>
+
+        <!-- ROW 2: Core Pollutant Grid -->
+        <div class="glass-panel">
+          <div class="panel-header-row">
+            <h2 class="panel-title">
+              <i data-lucide="activity"></i> Atmosphere Pollutant Profiles
+            </h2>
+          </div>
+
+          <div class="pollutants-grid">
+            
+            <!-- PM2.5 -->
+            <div class="pollutant-card" title="Particulate matter less than 2.5 micrometers in diameter">
+              <div class="pollutant-name">
+                <span>PM<sub>2.5</sub></span>
+                <button class="info-tooltip-btn" data-info="pm25"><i data-lucide="info" style="width: 14px; height: 14px;"></i></button>
+              </div>
+              <div>
+                <div class="pollutant-value"><span id="val-pm25">--</span><span class="pollutant-unit">µg/m³</span></div>
+                <div class="pollutant-status-bar">
+                  <div class="pollutant-status-fill" id="bar-pm25" style="background: var(--aqi-good);"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PM10 -->
+            <div class="pollutant-card" title="Particulate matter less than 10 micrometers in diameter">
+              <div class="pollutant-name">
+                <span>PM<sub>10</sub></span>
+                <button class="info-tooltip-btn" data-info="pm10"><i data-lucide="info" style="width: 14px; height: 14px;"></i></button>
+              </div>
+              <div>
+                <div class="pollutant-value"><span id="val-pm10">--</span><span class="pollutant-unit">µg/m³</span></div>
+                <div class="pollutant-status-bar">
+                  <div class="pollutant-status-fill" id="bar-pm10" style="background: var(--aqi-good);"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ozone O3 -->
+            <div class="pollutant-card" title="Ground-level Ozone">
+              <div class="pollutant-name">
+                <span>O<sub>3</sub></span>
+                <button class="info-tooltip-btn" data-info="o3"><i data-lucide="info" style="width: 14px; height: 14px;"></i></button>
+              </div>
+              <div>
+                <div class="pollutant-value"><span id="val-o3">--</span><span class="pollutant-unit">µg/m³</span></div>
+                <div class="pollutant-status-bar">
+                  <div class="pollutant-status-fill" id="bar-o3" style="background: var(--aqi-good);"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Nitrogen Dioxide NO2 -->
+            <div class="pollutant-card" title="Nitrogen Dioxide gas from combustion">
+              <div class="pollutant-name">
+                <span>NO<sub>2</sub></span>
+                <button class="info-tooltip-btn" data-info="no2"><i data-lucide="info" style="width: 14px; height: 14px;"></i></button>
+              </div>
+              <div>
+                <div class="pollutant-value"><span id="val-no2">--</span><span class="pollutant-unit">µg/m³</span></div>
+                <div class="pollutant-status-bar">
+                  <div class="pollutant-status-fill" id="bar-no2" style="background: var(--aqi-good);"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sulfur Dioxide SO2 -->
+            <div class="pollutant-card" title="Sulfur Dioxide gas from energy production">
+              <div class="pollutant-name">
+                <span>SO<sub>2</sub></span>
+                <button class="info-tooltip-btn" data-info="so2"><i data-lucide="info" style="width: 14px; height: 14px;"></i></button>
+              </div>
+              <div>
+                <div class="pollutant-value"><span id="val-so2">--</span><span class="pollutant-unit">µg/m³</span></div>
+                <div class="pollutant-status-bar">
+                  <div class="pollutant-status-fill" id="bar-so2" style="background: var(--aqi-good);"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Carbon Monoxide CO -->
+            <div class="pollutant-card" title="Carbon Monoxide toxic odorless gas">
+              <div class="pollutant-name">
+                <span>CO</span>
+                <button class="info-tooltip-btn" data-info="co"><i data-lucide="info" style="width: 14px; height: 14px;"></i></button>
+              </div>
+              <div>
+                <div class="pollutant-value"><span id="val-co">--</span><span class="pollutant-unit">mg/m³</span></div>
+                <div class="pollutant-status-bar">
+                  <div class="pollutant-status-fill" id="bar-co" style="background: var(--aqi-good);"></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ROW 3: Forecasting Visualization -->
+        <div class="glass-panel">
+          <div class="panel-header-row">
+            <h2 class="panel-title">
+              <i data-lucide="trending-up"></i> Predictive Pollutant Forecasts
+            </h2>
+            <div class="chart-controls">
+              <button id="btn-chart-hourly" class="chart-tab active">Hourly Trends</button>
+              <button id="btn-chart-daily" class="chart-tab">7-Day Forecast</button>
+            </div>
+          </div>
+          
+          <div class="chart-canvas-container">
+            <canvas id="forecastChart"></canvas>
+          </div>
+        </div>
+
+        <!-- ROW 4: Dynamic Health Guidance -->
+        <div class="glass-panel">
+          <div class="panel-header-row">
+            <h2 class="panel-title">
+              <i data-lucide="shield-check"></i> Health Advisory & Protective Measures
+            </h2>
+          </div>
+
+          <div class="tab-container">
+            <div class="tabs-header">
+              <button class="tab-btn active" data-tab="general">General Public</button>
+              <button class="tab-btn" data-tab="sensitive">Sensitive Groups</button>
+              <button class="tab-btn" data-tab="outdoors">Active & Outdoors</button>
+              <button class="tab-btn" data-tab="protective">Home & Precautions</button>
+            </div>
+            
+            <!-- Tab Contents -->
+            <div id="tab-general" class="tab-content active">
+              <div class="health-recommendations">
+                <div class="health-item">
+                  <div class="health-icon-wrapper"><i data-lucide="smile"></i></div>
+                  <div class="health-item-text">
+                    <span class="health-item-title">Outdoor Activities</span>
+                    <span class="health-item-desc" id="advice-gen-outdoor">Perfect conditions for standard outdoor strolls, runs, and open-air activities.</span>
+                  </div>
+                </div>
+                <div class="health-item">
+                  <div class="health-icon-wrapper"><i data-lucide="droplet"></i></div>
+                  <div class="health-item-text">
+                    <span class="health-item-title">General Advice</span>
+                    <span class="health-item-desc" id="advice-gen-general">No respiratory cautions necessary. Go out and enjoy the clear, refreshing air!</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="tab-sensitive" class="tab-content">
+              <div class="health-recommendations">
+                <div class="health-item">
+                  <div class="health-icon-wrapper"><i data-lucide="baby"></i></div>
+                  <div class="health-item-text">
+                    <span class="health-item-title">Children & Elders</span>
+                    <span class="health-item-desc" id="advice-sens-kids">Extremely safe for young children, toddlers, elderly groups, and pregnant individuals.</span>
+                  </div>
+                </div>
+                <div class="health-item">
+                  <div class="health-icon-wrapper"><i data-lucide="heart-pulse"></i></div>
+                  <div class="health-item-text">
+                    <span class="health-item-title">Respiratory Conditions</span>
+                    <span class="health-item-desc" id="advice-sens-resp">Asthma and allergy sufferers can move freely without risk of triggered symptoms.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="tab-outdoors" class="tab-content">
+              <div class="health-recommendations">
+                <div class="health-item">
+                  <div class="health-icon-wrapper"><i data-lucide="bike"></i></div>
+                  <div class="health-item-text">
+                    <span class="health-item-title">Heavy Cardio & Sports</span>
+                    <span class="health-item-desc" id="advice-out-cardio">Excellent day for high-intensity training, long marathon runs, cycling, or outdoor sports.</span>
+                  </div>
+                </div>
+                <div class="health-item">
+                  <div class="health-icon-wrapper"><i data-lucide="sun-medium"></i></div>
+                  <div class="health-item-text">
+                    <span class="health-item-title">Prolonged Exposure</span>
+                    <span class="health-item-desc" id="advice-out-exposure">Extended time outdoors carries absolute zero chemical or dust pollutant risk.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="tab-protective" class="tab-content">
+              <div class="health-recommendations">
+                <div class="health-item">
+                  <div class="health-icon-wrapper"><i data-lucide="home"></i></div>
+                  <div class="health-item-text">
+                    <span class="health-item-title">Indoor Ventilation</span>
+                    <span class="health-item-desc" id="advice-prot-vent">Open your windows to let the fresh air circulate and clear indoor space carbon dioxide.</span>
+                  </div>
+                </div>
+                <div class="health-item">
+                  <div class="health-icon-wrapper"><i data-lucide="sparkles"></i></div>
+                  <div class="health-item-text">
+                    <span class="health-item-title">Air Filtration</span>
+                    <span class="health-item-desc" id="advice-prot-filter">Mechanical air purifiers are not required. Save filters and use natural aeration.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- Settings Drawer (Right Slideout Panel) -->
+    <div id="settings-drawer" class="settings-drawer">
+      <div class="drawer-header">
+        <span class="drawer-title">Dashboard Settings</span>
+        <button id="btn-close-drawer" class="drawer-close-btn">&times;</button>
+      </div>
+
+      <!-- Provider configuration toggle -->
+      <div class="settings-group">
+        <span class="settings-label">Primary API Provider</span>
+        <div class="provider-toggle-box">
+          <button id="provider-meteo" class="provider-btn active">Open-Meteo</button>
+          <button id="provider-waqi" class="provider-btn">WAQI API</button>
+        </div>
+      </div>
+
+      <!-- Token config (Shows for WAQI) -->
+      <div class="settings-group" id="waqi-token-group" style="display: none;">
+        <span class="settings-label">Custom WAQI Token (Override)</span>
+        <input type="password" id="waqi-token-input" class="input-box-styled" placeholder="Use server env key (default)" value="">
+        <div class="connection-status">
+          <div class="status-dot unknown" id="token-status-dot"></div>
+          <span id="token-status-text" style="color: var(--text-secondary);">Untested</span>
+        </div>
+      </div>
+
+      <!-- Bookmarked Locations -->
+      <div class="settings-group">
+        <span class="settings-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Bookmarked Cities</span>
+          <button id="btn-bookmark-current" class="btn-primary" style="padding: 6px 12px; font-size: 11px; border-radius: var(--border-radius-sm);">
+            <i data-lucide="plus" style="width: 12px; height: 12px;"></i> Add Current
+          </button>
+        </span>
+        <div class="favorites-list" id="favorites-list-container">
+          <!-- Injected via JavaScript -->
+          <div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 12px 0;">No bookmarked locations.</div>
+        </div>
+      </div>
+
+      <!-- About Section -->
+      <div class="settings-group" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+        <p><strong>Open-Meteo Provider</strong>: Provides keyless global forecasts derived from Copernicus atmospheric modeling systems.</p>
+        <br>
+        <p><strong>WAQI Provider</strong>: Displays live air quality indexing. The server hides the API key securely. Override using the Custom Token field if desired.</p>
+      </div>
+    </div>
+
+    <!-- Toast container for notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Footer Information -->
+    <footer>
+      <span>AirPulse Dashboard &copy; 2026. Made with Premium Craftsmanship.</span>
+      <span>Atmospheric modeling indices courtesy of <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> &amp; <a href="https://aqicn.org" target="_blank" rel="noopener">WAQI</a>.</span>
+    </footer>
+
+  </div>
+
+  <!-- Loading External Scripts via CDN -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- App JS Modules -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
